@@ -37,6 +37,7 @@
 	},
 	"dependencies": {
 		"@types/p5": "^1.7.6",
+		"jsmediatags": "^3.9.7",
 		"p5": "^2.0.3",
 		"p5.sound": "^0.2.0"
 	}

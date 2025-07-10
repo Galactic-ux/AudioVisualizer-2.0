@@ -1,7 +1,5 @@
-
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
-  import { slide, fade } from 'svelte/transition';
 
   const dispatch = createEventDispatcher();
 
@@ -31,17 +29,48 @@
   }
 
   function handleFileUpload(event) {
-    const uploadedFiles = Array.from(event.target.files);
-    const newSongs = uploadedFiles.map(file => ({
-      name: file.name,
-      url: URL.createObjectURL(file),
-      file
-    }));
-    files = [...files, ...newSongs];
-    if (!currentSong && files.length > 0) {
-      playSong(files[0]);
+  const uploadedFiles = Array.from(event.target.files);
+
+  uploadedFiles.forEach(file => {
+    if (window.jsmediatags) {
+      window.jsmediatags.read(file, {
+        onSuccess: tag => {
+          let picture = tag.tags.picture;
+          let base64String = "";
+          if (picture) {
+            for (let i = 0; i < picture.data.length; i++) {
+              base64String += String.fromCharCode(picture.data[i]);
+            }
+            const base64 = `data:${picture.format};base64,${btoa(base64String)}`;
+            addSong(file, base64);
+          } else {
+            addSong(file, null);
+          }
+        },
+        onError: err => {
+          console.warn("jsmediatags error:", err);
+          addSong(file, null);
+        }
+      });
+    } else {
+      console.warn("jsmediatags not available on window.");
+      addSong(file, null);
     }
+  });
+}
+
+function addSong(file, albumArt) {
+  const newSong = {
+    name: file.name,
+    url: URL.createObjectURL(file),
+    file,
+    albumArt
+  };
+  files = [...files, newSong];
+  if (!currentSong) {
+    playSong(newSong);
   }
+}
 
   function triggerFileUpload() {
     fileInput.click();
@@ -62,7 +91,7 @@
     if (currentSong?.url !== song.url) {
       currentSong = song;
       audio.src = song.url;
-      dispatch('songChange', { song, audio });
+      dispatch('songChange', { song, audio }); // 💡 Send albumArt to visualizer
     }
 
     const playAudio = () => {
@@ -76,6 +105,7 @@
 
     if (window.audioContext && window.audioContext.state === 'suspended') {
       window.audioContext.resume().then(() => {
+        console.log('✅ AudioContext resumed for playback');
         playAudio();
       }).catch(console.error);
     } else {
@@ -101,6 +131,7 @@
 
       if (window.audioContext && window.audioContext.state === 'suspended') {
         window.audioContext.resume().then(() => {
+          console.log('✅ AudioContext resumed for playback');
           playAudio();
         }).catch(console.error);
       } else {
@@ -130,36 +161,72 @@
 
 <!-- Upload Button -->
 <div id="upload-container">
-  <input type="file" accept="audio/*" multiple bind:this={fileInput} on:change={handleFileUpload} id="file-input" />
-  <label for="file-input" class="custom-upload-btn"><span>Upload Music</span></label>
+  <input
+    type="file"
+    accept="audio/*"
+    multiple
+    bind:this={fileInput}
+    on:change={handleFileUpload}
+    id="file-input"
+  />
+  <label for="file-input" class="custom-upload-btn">
+    <span>Upload Music</span>
+  </label>
 </div>
 
 <!-- Playlist Dropdown -->
 {#if files.length > 0}
   <div id="playlist-container">
-    <button id="current-song" type="button" aria-haspopup="listbox" aria-expanded={dropdownOpen} on:click={toggleDropdown}>
+    <button
+      id="current-song"
+      type="button"
+      aria-haspopup="listbox"
+      aria-expanded={dropdownOpen}
+      on:click={toggleDropdown}
+    >
       <div id="song-display">
-        <span id="song-title-display">{currentSong ? currentSong.name : 'Select a Song'}</span>
+        <span id="song-title-display">
+          {currentSong ? currentSong.name : 'Select a Song'}
+        </span>
       </div>
       <span id="dropdown-button" aria-hidden="true">▼</span>
     </button>
     {#if dropdownOpen}
       <div id="song-dropdown">
         {#each files as song, i}
-          <button type="button" class="song-option" on:click={() => selectSong(i)}>{song.name}</button>
+          <button
+            type="button"
+            class="song-option"
+            on:click={() => selectSong(i)}
+          >
+            {song.name}
+          </button>
         {/each}
       </div>
     {/if}
   </div>
 {/if}
 
-<!-- Player Controls with transition -->
+<!-- Player Controls -->
 {#if currentSong}
-  <div id="animated-controls" transition:slide|fade={{ duration: 300 }}>
-    <button class="control-btn" on:click={togglePlayPause}>{isPlaying ? '❚❚' : '▶'}</button>
-    <input type="range" min="0" max={duration} value={currentTime} on:input={handleSeek} />
-    <div id="time-display">{formatTime(currentTime)} / {formatTime(duration)}</div>
-    <button class="control-btn" on:click={toggleFullscreen} title="Toggle Fullscreen">{isFullscreen ? '🡼' : '⛶'}</button>
+  <div id="animated-controls">
+    <button class="control-btn" on:click={togglePlayPause}>
+      {isPlaying ? '⏸' : '▶'}
+    </button>
+    <button class="control-btn" on:click={toggleFullscreen} title="Toggle Fullscreen">
+      {isFullscreen ? '🡼' : '⛶'}
+    </button>
+
+    <input
+      type="range"
+      min="0"
+      max={duration}
+      value={currentTime}
+      on:input={handleSeek}
+    />
+    <div id="time-display">
+      {formatTime(currentTime)} / {formatTime(duration)}
+    </div>
   </div>
 {/if}
 

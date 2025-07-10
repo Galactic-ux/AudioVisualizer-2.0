@@ -4,11 +4,12 @@
 
   let currentSong = null;
   let audioEl = null;
-  let mode = 'videoWaveform'; // Default mode set to 'videoWaveform'
+  let mode = 'waveform'; // Default mode set to 'videoWaveform'
 </script>
 
 <select bind:value={mode} style="position: fixed; top: 20px; right: 20px; z-index: 100;">
-  <option value="videoWaveform">Waveform</option>
+  <option value="waveform">Waveform</option>
+  <option value="bubbles">circles</option>
 </select>
 
 <MusicPlayer
@@ -19,7 +20,8 @@
 />
 
 {#if audioEl}
-  <Visualizer {audioEl} {mode} />
+  <Visualizer {audioEl} {mode} albumArt={currentSong?.albumArt} />
+
 {/if}
 
 <style>
